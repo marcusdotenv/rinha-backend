@@ -1,0 +1,60 @@
+version: '3'
+
+services:
+  db:
+    restart: always
+    container_name: postgree
+    image: postgres:latest
+    hostname: db
+    environment:
+      - POSTGRES_PASSWORD=dev
+      - POSTGRES_USER=dev
+      - POSTGRES_DB=rinha
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./tables_and_seed.sql:/docker-entrypoint-initdb.d/tables_and_seed.sql
+    deploy:
+      resources:
+        limits:
+          cpus: "0.4"
+          memory: "200MB"
+  winner_api_01: &api
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    hostname: api01
+    environment:
+      - DATABASE_HOST=db
+      - DATABASE_PORT=5432
+      - DATABASE_USER=dev
+      - DATABASE_PASSWD=dev
+      - DATABASE_NAME=rinha
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "150MB"
+  winner_api_02:
+    <<: *api 
+    ports:
+      - "8001:8000"
+  nginx:
+    restart: always
+    image: nginx:latest
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - winner_api_01
+      - winner_api_02
+    ports:
+      - "9999:9999" 
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: "50MB"
