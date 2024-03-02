@@ -2,7 +2,7 @@ import datetime
 from uuid import UUID
 from utils import *
 from fastapi import FastAPI, HTTPException
-from db import connect_db
+from db import *
 from psycopg2.extras import RealDictCursor
 import uuid
 
@@ -17,9 +17,9 @@ def check():
 
 @app.post("/clientes/{cliente_id}/transacoes")
 async def nova_transacao(new_transaction: dict, cliente_id: int):
-
+    db = get_connection()
     validate_new_transaction(new_transaction)
-    db = connect_db()
+    cursor = None
     try:
         with db.cursor(cursor_factory=RealDictCursor) as cursor:
             db.autocommit = False
@@ -33,7 +33,6 @@ async def nova_transacao(new_transaction: dict, cliente_id: int):
 
             save_transaction({**new_transaction, "cliente_id":cliente_id}, cursor)
             db.commit()
-            db.close()
 
             return {
                 "limite": client_data["limite"],
@@ -42,24 +41,29 @@ async def nova_transacao(new_transaction: dict, cliente_id: int):
 
     except Exception as e:
         db.rollback()
-        db.close()
         raise e
+    finally:
+        if cursor: cursor.close()
+        release_connection(db)
+
 
 
 @app.get("/clientes/{cliente_id}/extrato")
 async def extrato(cliente_id: int):
-    db = connect_db()
-    cursor = db.cursor(cursor_factory=RealDictCursor)
+    db = get_connection()
+    cursor = None
+    try:
+        db.autocommit = False
+        cursor = db.cursor(cursor_factory=RealDictCursor)
 
-    client_data = get_client_data(cliente_id, cursor)
+        client_data = get_client_data(cliente_id, cursor)
 
-    accumulated_transaction_balance = get_current_accumulated_balance(cliente_id, cursor)
+        accumulated_transaction_balance = get_current_accumulated_balance(cliente_id, cursor)
 
-    last_transactions = get_client_last_transactions(cliente_id, 10, cursor)
+        last_transactions = get_client_last_transactions(cliente_id, 10, cursor)
+        db.commit()
 
-    db.close()
-
-    return {
+        return {
         "saldo": {
             "total": accumulated_transaction_balance+client_data["saldo_inicial"],
             "data_extrato": datetime.datetime.now(),
@@ -67,3 +71,10 @@ async def extrato(cliente_id: int):
         },
         "ultimas_transacoes": last_transactions
     }
+
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        if cursor: cursor.close()
+        release_connection(db)

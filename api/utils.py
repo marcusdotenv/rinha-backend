@@ -38,16 +38,20 @@ def get_client_last_transactions(cliente_id, limit, cursor):
     return last_transactions
 
 def save_transaction(new_transaction, cursor):
+    blockLinesQuery = """
+        SELECT * FROM transacoes WHERE cliente_id = %(cliente_id)s FOR UPDATE
+    """
     querySaveNewTransaction = """
-        LOCK TABLE transacoes IN SHARE MODE;
         INSERT INTO transacoes (valor, tipo, descricao, cliente_id)
         VALUES (%(valor)s, %(tipo)s, %(descricao)s, %(cliente_id)s)
     """
+    cursor.execute(blockLinesQuery, new_transaction)
     cursor.execute(querySaveNewTransaction, new_transaction)
 
 
 def validate_new_transaction(new_transaction):
     expected_keys = ["tipo", "valor", "descricao"]
+    print(new_transaction)
     for key in expected_keys:
         if key not in new_transaction: raise HTTPException(status_code=400, detail=f"{key} is necessary")
         if new_transaction[key] == None: raise HTTPException(status_code=400, detail=f"{key} is necessary")
