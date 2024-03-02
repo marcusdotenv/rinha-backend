@@ -17,9 +17,11 @@ def get_current_accumulated_balance(client_id, cursor):
 def get_client_data(client_id, cursor):
     query_user_data = """ SELECT saldo_inicial, limite FROM clientes WHERE id=%(id)s"""
     cursor.execute(query_user_data, {"id": client_id})
-    registered_client = cursor.fetchall() 
+    registered_client = cursor.fetchall()
 
     if len(registered_client) == 0: raise HTTPException(status_code=404, detail=f"Client not found")
+
+    print(registered_client)
 
     return registered_client[0]
 
@@ -37,6 +39,7 @@ def get_client_last_transactions(cliente_id, limit, cursor):
 
 def save_transaction(new_transaction, cursor):
     querySaveNewTransaction = """
+        LOCK TABLE transacoes IN SHARE MODE;
         INSERT INTO transacoes (valor, tipo, descricao, cliente_id)
         VALUES (%(valor)s, %(tipo)s, %(descricao)s, %(cliente_id)s)
     """
@@ -47,12 +50,13 @@ def validate_new_transaction(new_transaction):
     expected_keys = ["tipo", "valor", "descricao"]
     for key in expected_keys:
         if key not in new_transaction: raise HTTPException(status_code=400, detail=f"{key} is necessary")
+        if new_transaction[key] == None: raise HTTPException(status_code=400, detail=f"{key} is necessary")
 
-    if len(new_transaction["descricao"]) > 10: 
+    if (len(new_transaction["descricao"]) > 10 and len(new_transaction["descricao"]) < 1): 
         raise HTTPException(status_code=400, detail="invalid description")
 
-    if len(new_transaction["tipo"]) > 1 or ( new_transaction["tipo"] != "d" and new_transaction["tipo"] != "c"): 
+    if len(new_transaction["tipo"]) > 1 or ( new_transaction["tipo"] != "d" and new_transaction["tipo"] != "c") or new_transaction["tipo"] == None: 
         raise HTTPException(status_code=400, detail="invalid type")
 
-    if new_transaction["valor"] < 0 or new_transaction["valor"] != int(new_transaction["valor"]):
+    if new_transaction["valor"] < 0 or new_transaction["valor"] != int(new_transaction["valor"]) or new_transaction["valor"] == None:
         raise HTTPException(status_code=400, detail="invalid value")

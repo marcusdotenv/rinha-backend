@@ -16,7 +16,7 @@ def check():
 
 
 @app.post("/clientes/{cliente_id}/transacoes")
-def nova_transacao(new_transaction: dict, cliente_id: int):
+async def nova_transacao(new_transaction: dict, cliente_id: int):
 
     validate_new_transaction(new_transaction)
     db = connect_db()
@@ -33,6 +33,7 @@ def nova_transacao(new_transaction: dict, cliente_id: int):
 
             save_transaction({**new_transaction, "cliente_id":cliente_id}, cursor)
             db.commit()
+            db.close()
 
             return {
                 "limite": client_data["limite"],
@@ -41,13 +42,12 @@ def nova_transacao(new_transaction: dict, cliente_id: int):
 
     except Exception as e:
         db.rollback()
-        raise e
-    finally:
         db.close()
+        raise e
 
 
 @app.get("/clientes/{cliente_id}/extrato")
-def extrato(cliente_id: int):
+async def extrato(cliente_id: int):
     db = connect_db()
     cursor = db.cursor(cursor_factory=RealDictCursor)
 

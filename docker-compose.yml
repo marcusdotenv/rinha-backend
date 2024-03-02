@@ -14,11 +14,12 @@ services:
       - "5432:5432"
     volumes:
       - ./tables_and_seed.sql:/docker-entrypoint-initdb.d/tables_and_seed.sql
+      - ./postgresql.conf:/etc/postgresql/postgresql.conf
     deploy:
       resources:
         limits:
-          cpus: "0.4"
-          memory: "200MB"
+          cpus: "0.6"
+          memory: "300MB"
   winner_api_01: &api
     build:
       context: ./api
@@ -37,8 +38,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: "150MB"
+          cpus: "0.4"
+          memory: "100MB"
   winner_api_02:
     <<: *api 
     ports:
